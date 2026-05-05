@@ -2,55 +2,65 @@ package slicer
 
 import (
 	"fmt"
+	"io"
+	"strings"
 	"time"
 )
 
-// Segment represents a named slice of log lines.
+// Segment holds a named collection of log lines with optional time metadata.
 type Segment struct {
-	Name  string
-	Lines []string
-	Start time.Time
-	End   time.Time
+	Name      string
+	lines     []string
+	bytes     int64
+	FirstTime *time.Time
+	LastTime  *time.Time
 }
 
-// NewSegment creates a new named Segment.
+// NewSegment creates an empty Segment with the given name.
 func NewSegment(name string) *Segment {
 	return &Segment{Name: name}
 }
 
 // Add appends a line to the segment.
 func (s *Segment) Add(line string) {
-	s.Lines = append(s.Lines, line)
+	s.lines = append(s.lines, line)
+	s.bytes += int64(len(line)) + 1 // +1 for newline
 }
 
 // Len returns the number of lines in the segment.
 func (s *Segment) Len() int {
-	return len(s.Lines)
+	return len(s.lines)
+}
+
+// Bytes returns the total byte size of the segment content.
+func (s *Segment) Bytes() int64 {
+	return s.bytes
 }
 
 // IsEmpty reports whether the segment contains no lines.
 func (s *Segment) IsEmpty() bool {
-	return len(s.Lines) == 0
+	return len(s.lines) == 0
 }
 
-// WriteTo writes all lines in the segment to the given OutputWriter.
-func (s *Segment) WriteTo(ow *OutputWriter) error {
-	for _, line := range s.Lines {
-		if err := ow.WriteLine(line); err != nil {
-			return fmt.Errorf("segment %q: write line: %w", s.Name, err)
+// WriteTo writes all lines to w, each terminated by a newline.
+func (s *Segment) WriteTo(w io.Writer) (int64, error) {
+	var total int64
+	for _, line := range s.lines {
+		n, err := fmt.Fprintln(w, line)
+		total += int64(n)
+		if err != nil {
+			return total, err
 		}
 	}
-	return nil
+	return total, nil
 }
 
-// Summary returns a human-readable summary of the segment.
+// Summary returns a human-readable description of the segment.
 func (s *Segment) Summary() string {
-	if s.Start.IsZero() || s.End.IsZero() {
-		return fmt.Sprintf("segment=%q lines=%d", s.Name, s.Len())
+	var sb strings.Builder
+	fmt.Fprintf(&sb, "segment %q: %d lines, %d bytes", s.Name, s.Len(), s.Bytes())
+	if s.FirstTime != nil && s.LastTime != nil {
+		fmt.Fprintf(&sb, " [%s – %s]", s.FirstTime.Format(time.RFC3339), s.LastTime.Format(time.RFC3339))
 	}
-	return fmt.Sprintf("segment=%q lines=%d start=%s end=%s",
-		s.Name, s.Len(),
-		s.Start.Format(time.RFC3339),
-		s.End.Format(time.RFC3339),
-	)
+	return sb.String()
 }
