@@ -20,7 +20,7 @@ func (p *Pipeline) Run(done <-chan struct{}) (int64, error) {
 	var written int64
 	for line := range lines {
 		if p.Slicer.Match(line) {
-			if _, err := io.WriteString(p.Writer, line+"\n"); err != nil {
+			if err := p.writeLine(line); err != nil {
 				return written, err
 			}
 			written++
@@ -31,6 +31,12 @@ func (p *Pipeline) Run(done <-chan struct{}) (int64, error) {
 		return written, err
 	}
 	return written, nil
+}
+
+// writeLine writes a single line followed by a newline to the Writer.
+func (p *Pipeline) writeLine(line string) error {
+	_, err := io.WriteString(p.Writer, line+"\n")
+	return err
 }
 
 // NewPipeline is a convenience constructor.
