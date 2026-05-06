@@ -22,6 +22,20 @@ func TestProgress_Tick_Counts(t *testing.T) {
 	}
 }
 
+func TestProgress_Tick_NoMatch(t *testing.T) {
+	var buf bytes.Buffer
+	p := NewProgress(&buf, false)
+	p.Tick(false, 100)
+	p.Tick(false, 200)
+
+	if p.LinesRead() != 2 {
+		t.Errorf("expected 2 lines read, got %d", p.LinesRead())
+	}
+	if p.BytesMatched() != 0 {
+		t.Errorf("expected 0 bytes matched for non-matching ticks, got %d", p.BytesMatched())
+	}
+}
+
 func TestProgress_Report_NonVerbose(t *testing.T) {
 	var buf bytes.Buffer
 	p := NewProgress(&buf, false)
