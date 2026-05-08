@@ -38,6 +38,17 @@ func (s *Sampler) Rate() uint64 {
 	return s.n
 }
 
+// Count returns the total number of lines seen since the last Reset.
+func (s *Sampler) Count() uint64 {
+	return s.counter.Load()
+}
+
+// Kept returns the number of lines that have been kept (passed through)
+// since the last Reset.
+func (s *Sampler) Kept() uint64 {
+	return s.counter.Load() / s.n
+}
+
 // SampleStage wraps a Sampler as a pipeline-compatible filter function.
 // It returns a LineFilter that can be composed into a pipeline.
 func SampleStage(n uint64) func(in <-chan string, done <-chan struct{}) <-chan string {
