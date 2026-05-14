@@ -30,26 +30,11 @@ func matchWord(word string) func(string) bool {
 	}
 }
 
-func TestContextFilter_MatchOnly(t *testing.T) {
-	cf := NewContextFilter(matchWord("ERROR"), 0, 0)
-	in := sendContextLines([]string{"info a", "ERROR b", "info c"})
-	out := make(chan string, 10)
-	cf.Run(context.Background(), in, out)
-	got := collectContextLines(out)
-	if len(got) != 1 || got[0] != "ERROR b" {
-		t.Fatalf("expected [ERROR b], got %v", got)
-	}
-}
-
-func TestContextFilter_BeforeContext(t *testing.T) {
-	cf := NewContextFilter(matchWord("ERROR"), 2, 0)
-	in := sendContextLines([]string{"a", "b", "c", "ERROR d", "e"})
-	out := make(chan string, 10)
-	cf.Run(context.Background(), in, out)
-	got := collectContextLines(out)
-	want := []string{"b", "c", "ERROR d"}
+// assertLines checks that got matches want element-by-element, calling t.Fatal/t.Error on mismatch.
+func assertLines(t *testing.T, want, got []string) {
+	t.Helper()
 	if len(got) != len(want) {
-		t.Fatalf("want %v, got %v", want, got)
+		t.Fatalf("want %v (len %d), got %v (len %d)", want, len(want), got, len(got))
 	}
 	for i := range want {
 		if got[i] != want[i] {
@@ -58,16 +43,31 @@ func TestContextFilter_BeforeContext(t *testing.T) {
 	}
 }
 
+func TestContextFilter_MatchOnly(t *testing.T) {
+	cf := NewContextFilter(matchWord("ERROR"), 0, 0)
+	in := sendContextLines([]string{"info a", "ERROR b", "info c"})
+	out := make(chan string, 10)
+	cf.Run(context.Background(), in, out)
+	got := collectContextLines(out)
+	assertLines(t, []string{"ERROR b"}, got)
+}
+
+func TestContextFilter_BeforeContext(t *testing.T) {
+	cf := NewContextFilter(matchWord("ERROR"), 2, 0)
+	in := sendContextLines([]string{"a", "b", "c", "ERROR d", "e"})
+	out := make(chan string, 10)
+	cf.Run(context.Background(), in, out)
+	got := collectContextLines(out)
+	assertLines(t, []string{"b", "c", "ERROR d"}, got)
+}
+
 func TestContextFilter_AfterContext(t *testing.T) {
 	cf := NewContextFilter(matchWord("ERROR"), 0, 2)
 	in := sendContextLines([]string{"a", "ERROR b", "c", "d", "e"})
 	out := make(chan string, 10)
 	cf.Run(context.Background(), in, out)
 	got := collectContextLines(out)
-	want := []string{"ERROR b", "c", "d"}
-	if len(got) != len(want) {
-		t.Fatalf("want %v, got %v", want, got)
-	}
+	assertLines(t, []string{"ERROR b", "c", "d"}, got)
 }
 
 func TestContextFilter_NegativeClampedToZero(t *testing.T) {
