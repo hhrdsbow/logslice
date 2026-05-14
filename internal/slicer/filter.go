@@ -78,3 +78,9 @@ func (f *Filter) Apply(lines []string) []string {
 	}
 	return out
 }
+
+// IsEmpty reports whether the filter has no include or exclude patterns.
+// An empty filter accepts every line.
+func (f *Filter) IsEmpty() bool {
+	return len(f.include) == 0 && len(f.exclude) == 0
+}
