@@ -37,27 +37,33 @@ func (s *CheckpointStage) Run(ctx context.Context, in <-chan string) <-chan stri
 		for {
 			select {
 			case <-ctx.Done():
-				_ = s.cp.Save(s.savePath)
+				s.saveCheckpoint()
 				return
 			case line, ok := <-in:
 				if !ok {
-					_ = s.cp.Save(s.savePath)
+					s.saveCheckpoint()
 					return
 				}
 				lineCount++
 				byteOffset += int64(len(line)) + 1 // +1 for newline
 				s.cp.Update(byteOffset, lineCount)
 				if lineCount%s.saveEvery == 0 {
-					_ = s.cp.Save(s.savePath)
+					s.saveCheckpoint()
 				}
 				select {
 				case out <- line:
 				case <-ctx.Done():
-					_ = s.cp.Save(s.savePath)
+					s.saveCheckpoint()
 					return
 				}
 			}
 		}
 	}()
 	return out
+}
+
+// saveCheckpoint saves the current checkpoint to disk, ignoring any error.
+// Callers that need to handle save errors should call s.cp.Save directly.
+func (s *CheckpointStage) saveCheckpoint() {
+	_ = s.cp.Save(s.savePath)
 }
